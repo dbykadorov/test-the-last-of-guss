@@ -1,0 +1,154 @@
+// Additional component styles
+@use './variables' as *;
+
+.input-group {
+  margin-bottom: $spacing-md;
+}
+
+.input-label {
+  display: block;
+  margin-bottom: $spacing-xs;
+  font-weight: 500;
+  color: $text-primary;
+}
+
+.input-error {
+  display: block;
+  margin-top: $spacing-xs;
+}
+
+.goose {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+  cursor: pointer;
+  transition: $transition;
+  user-select: none;
+  
+  &:hover {
+    transform: scale(1.05);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  &--disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    
+    &:hover {
+      transform: none;
+    }
+  }
+}
+
+.round-card {
+  // Card base styles (replaces @extend .card)
+  background-color: $surface;
+  border-radius: $border-radius-lg;
+  padding: $spacing-lg;
+  box-shadow: $shadow;
+  
+  margin-bottom: $spacing-md;
+  
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-sm;
+  }
+  
+  &__title {
+    color: $primary-color;
+    text-decoration: none;
+    font-weight: 600;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+  
+  &__status {
+    padding: $spacing-xs $spacing-sm;
+    border-radius: $border-radius;
+    font-size: $font-size-sm;
+    font-weight: 500;
+    
+    &--active {
+      background-color: rgba($success-color, 0.1);
+      color: $success-color;
+    }
+    
+    &--cooldown {
+      background-color: rgba($warning-color, 0.1);
+      color: $warning-color;
+    }
+    
+    &--finished {
+      background-color: rgba($text-secondary, 0.1);
+      color: $text-secondary;
+    }
+  }
+  
+  &__time {
+    color: $text-secondary;
+    font-size: $font-size-sm;
+  }
+}
+
+.game-area {
+  text-align: center;
+  padding: $spacing-2xl 0;
+  
+  &__status {
+    margin-bottom: $spacing-lg;
+  }
+  
+  &__timer {
+    font-size: $font-size-2xl;
+    font-weight: 600;
+    color: $primary-color;
+    margin-bottom: $spacing-md;
+  }
+  
+  &__score {
+    font-size: $font-size-xl;
+    margin-bottom: $spacing-xl;
+  }
+  
+  &__goose {
+    margin-bottom: $spacing-xl;
+  }
+}
+
+.stats {
+  background-color: $surface;
+  border-radius: $border-radius-lg;
+  padding: $spacing-lg;
+  
+  &__title {
+    margin-bottom: $spacing-md;
+    color: $text-primary;
+  }
+  
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    padding: $spacing-sm 0;
+    border-bottom: 1px solid $border;
+    
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+  
+  &__label {
+    color: $text-secondary;
+  }
+  
+  &__value {
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
