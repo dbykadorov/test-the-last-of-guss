@@ -9,12 +9,14 @@ import { Round } from '@domain/round/round.entity';
 import { RoundParticipant } from '@domain/round/round-participant.entity';
 import { UserRole } from '@domain/user/user-role.enum';
 import { RoundStatus } from '@domain/round/round-status.enum';
+import { TransactionalRunner } from '@infrastructure/transaction/transactional-runner';
 
 describe('TapDomainService', () => {
   let service: TapDomainService;
   let userRepository: jest.Mocked<UserRepositoryPort>;
   let roundRepository: jest.Mocked<RoundRepositoryPort>;
   let participantRepository: jest.Mocked<RoundParticipantRepositoryPort>;
+  let transactionalRunner: jest.Mocked<TransactionalRunner>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -38,10 +40,15 @@ describe('TapDomainService', () => {
           useValue: {
             findByUserAndRound: jest.fn(),
             findByUserAndRoundForUpdate: jest.fn(),
-            executeInTransaction: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
             saveWithOptimisticLock: jest.fn(),
+          },
+        },
+        {
+          provide: TransactionalRunner,
+          useValue: {
+            runInTransaction: jest.fn(),
           },
         },
       ],
@@ -51,6 +58,7 @@ describe('TapDomainService', () => {
     userRepository = module.get('UserRepositoryPort');
     roundRepository = module.get('RoundRepositoryPort');
     participantRepository = module.get('RoundParticipantRepositoryPort');
+    transactionalRunner = module.get(TransactionalRunner);
   });
 
   describe('executeTap', () => {
@@ -78,9 +86,12 @@ describe('TapDomainService', () => {
       userRepository.findById.mockResolvedValue(user);
       roundRepository.findById.mockResolvedValue(round);
       
-      // Mock transaction execution
-      participantRepository.executeInTransaction.mockImplementation(async (operation) => {
-        return await operation({} as any);
+      // Mock TransactionalRunner
+      ;(transactionalRunner.runInTransaction as jest.Mock).mockImplementation(async (cb) => {
+        return await cb({
+          participantRepository,
+          roundRepository: roundRepository as any,
+        } as any, {} as any);
       });
       
       participantRepository.findByUserAndRoundForUpdate.mockResolvedValue(participant);
@@ -95,7 +106,7 @@ describe('TapDomainService', () => {
       expect(result.tapsCount).toBe(11);
       expect(result.bonusEarned).toBe(true);
       expect(participantRepository.saveWithOptimisticLock).toHaveBeenCalled();
-      expect(roundRepository.incrementTotalScore).toHaveBeenCalledWith(roundId, 10, expect.anything());
+      expect(roundRepository.incrementTotalScore).toHaveBeenCalledWith(roundId, 10);
     });
 
     it('should return zeros for Nikita user', async () => {
@@ -116,9 +127,8 @@ describe('TapDomainService', () => {
       userRepository.findById.mockResolvedValue(user);
       roundRepository.findById.mockResolvedValue(round);
       
-      // Mock transaction execution for Nikita
-      participantRepository.executeInTransaction.mockImplementation(async (operation) => {
-        return await operation({} as any);
+      ;(transactionalRunner.runInTransaction as jest.Mock).mockImplementation(async (cb) => {
+        return await cb({ participantRepository, roundRepository: roundRepository as any } as any, {} as any);
       });
       
       participantRepository.findByUserAndRoundForUpdate.mockResolvedValue(participant);
@@ -176,9 +186,8 @@ describe('TapDomainService', () => {
       userRepository.findById.mockResolvedValue(user);
       roundRepository.findById.mockResolvedValue(round);
       
-      // Mock transaction execution
-      participantRepository.executeInTransaction.mockImplementation(async (operation) => {
-        return await operation({} as any);
+      ;(transactionalRunner.runInTransaction as jest.Mock).mockImplementation(async (cb) => {
+        return await cb({ participantRepository, roundRepository: roundRepository as any } as any, {} as any);
       });
       
       participantRepository.findByUserAndRoundForUpdate.mockResolvedValue(participant);
@@ -211,9 +220,8 @@ describe('TapDomainService', () => {
       userRepository.findById.mockResolvedValue(user);
       roundRepository.findById.mockResolvedValue(round);
       
-      // Mock transaction execution
-      participantRepository.executeInTransaction.mockImplementation(async (operation) => {
-        return await operation({} as any);
+      ;(transactionalRunner.runInTransaction as jest.Mock).mockImplementation(async (cb) => {
+        return await cb({ participantRepository, roundRepository: roundRepository as any } as any, {} as any);
       });
       
       // Mock pessimistic locking
@@ -230,7 +238,7 @@ describe('TapDomainService', () => {
 
       // Assert
       expect(results.every(result => result.status === 'fulfilled')).toBe(true);
-      expect(participantRepository.executeInTransaction).toHaveBeenCalledTimes(5);
+      expect(transactionalRunner.runInTransaction).toHaveBeenCalledTimes(5);
       expect(participantRepository.findByUserAndRoundForUpdate).toHaveBeenCalledTimes(5);
       expect(roundRepository.incrementTotalScore).toHaveBeenCalledTimes(5);
     });
@@ -256,9 +264,8 @@ describe('TapDomainService', () => {
       userRepository.findById.mockResolvedValue(user);
       roundRepository.findById.mockResolvedValue(round);
       
-      // Mock transaction execution
-      participantRepository.executeInTransaction.mockImplementation(async (operation) => {
-        return await operation({} as any);
+      ;(transactionalRunner.runInTransaction as jest.Mock).mockImplementation(async (cb) => {
+        return await cb({ participantRepository, roundRepository: roundRepository as any } as any, {} as any);
       });
       
       // First call returns null (participant doesn't exist)
@@ -281,7 +288,7 @@ describe('TapDomainService', () => {
       expect(result.bonusEarned).toBe(false);
       expect(participantRepository.create).toHaveBeenCalledWith({ userId, roundId });
       expect(participantRepository.findByUserAndRoundForUpdate).toHaveBeenCalledTimes(2);
-      expect(roundRepository.incrementTotalScore).toHaveBeenCalledWith(roundId, 1, expect.anything());
+      expect(roundRepository.incrementTotalScore).toHaveBeenCalledWith(roundId, 1);
     });
   });
 });

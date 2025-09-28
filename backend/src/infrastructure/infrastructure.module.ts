@@ -12,6 +12,7 @@ import { RoundParticipantRepositoryPort } from '@domain/round/ports/round-partic
 import { TapServicePort } from '@domain/tap/ports/tap.service.port';
 import { TapDomainService } from '@domain/tap/tap.domain-service';
 import { RoundDomainService } from '@domain/round/round.domain-service';
+import { TransactionalRunner } from './transaction/transactional-runner';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { RoundDomainService } from '@domain/round/round.domain-service';
       useClass: TapDomainService,
     },
     RoundDomainService,
+    TransactionalRunner,
   ],
   exports: [
     'UserRepositoryPort',
@@ -43,6 +45,7 @@ import { RoundDomainService } from '@domain/round/round.domain-service';
     'RoundParticipantRepositoryPort',
     'TapServicePort',
     RoundDomainService,
+    TransactionalRunner,
   ],
 })
 export class InfrastructureModule {}

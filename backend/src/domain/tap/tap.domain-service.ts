@@ -5,6 +5,7 @@ import { UserRepositoryPort } from '../user/ports/user.repository.port';
 import { RoundRepositoryPort } from '../round/ports/round.repository.port';
 import { RoundParticipantRepositoryPort } from '../round/ports/round-participant.repository.port';
 import { UserRole } from '../user/user-role.enum';
+import { TransactionalRunner } from '@infrastructure/transaction/transactional-runner';
 
 @Injectable()
 export class TapDomainService implements TapServicePort {
@@ -16,6 +17,7 @@ export class TapDomainService implements TapServicePort {
     private readonly roundRepository: RoundRepositoryPort,
     @Inject('RoundParticipantRepositoryPort')
     private readonly participantRepository: RoundParticipantRepositoryPort,
+    private readonly transactionalRunner: TransactionalRunner,
   ) {}
 
   async executeTap(userId: string, roundId: string): Promise<TapResult> {
@@ -46,15 +48,15 @@ export class TapDomainService implements TapServicePort {
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        return await this.participantRepository.executeInTransaction(async (manager) => {
+        return await this.transactionalRunner.runInTransaction(async ({ participantRepository, roundRepository }, manager) => {
           // Find participant with pessimistic lock (or fail fast under contention)
-          let participant = await this.participantRepository.findByUserAndRoundForUpdate(userId, roundId);
+          let participant = await participantRepository.findByUserAndRoundForUpdate(userId, roundId);
           
           if (!participant) {
             this.logger.debug(`Creating participant (userId=${userId}, roundId=${roundId})`);
-            participant = this.participantRepository.create({ userId, roundId });
-            participant = await this.participantRepository.save(participant);
-            participant = await this.participantRepository.findByUserAndRoundForUpdate(userId, roundId);
+            participant = participantRepository.create({ userId, roundId });
+            participant = await participantRepository.save(participant);
+            participant = await participantRepository.findByUserAndRoundForUpdate(userId, roundId);
             if (!participant) {
               this.logger.error(`Failed to create or lock participant (userId=${userId}, roundId=${roundId})`);
               throw new ConflictException('Failed to create or lock participant');
@@ -68,8 +70,8 @@ export class TapDomainService implements TapServicePort {
 
           const tapResult = participant.addTap();
           this.logger.debug(`Tap computed (userId=${userId}, roundId=${roundId}, scoreEarned=${tapResult.scoreEarned}, bonus=${tapResult.bonusEarned})`);
-          await this.participantRepository.saveWithOptimisticLock(participant);
-          await this.roundRepository.incrementTotalScore(roundId, Number(tapResult.scoreEarned), manager);
+          await participantRepository.saveWithOptimisticLock(participant);
+          await roundRepository.incrementTotalScore(roundId, Number(tapResult.scoreEarned));
           this.logger.debug(`Round totalScore incremented (roundId=${roundId}, delta=${tapResult.scoreEarned})`);
 
           return TapResult.create(
