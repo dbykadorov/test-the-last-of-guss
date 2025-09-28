@@ -54,13 +54,13 @@ export interface LoginResponse {
 
 // Round DTOs
 export interface CreateRoundRequest {
-  // Round is created automatically with configured duration
+  // Раунд создаем с константным набором свойств, так что тут пусто
 }
 
 export interface TapResponse {
   myScore: number;
   tapsCount: number;
-  bonusEarned: boolean; // true if this was 11th tap
+  bonusEarned: boolean; // true на 11й тап
 }
 
 // API Response wrappers

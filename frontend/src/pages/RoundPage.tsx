@@ -2,61 +2,73 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuthStore } from '@store/auth';
 import { useRoundDetails, useTapGoose } from '@hooks/useRounds';
+import { useQueryClient } from '@tanstack/react-query';
 import { RoundStatus } from '@/types/api';
+import { useRoundChannel } from '@/hooks/useRoundChannel';
 
 const RoundPage = () => {
   const { id: roundId } = useParams<{ id: string }>();
   const user = useAuthStore((state) => state.user);
+  const queryClient = useQueryClient();
   const { data: round, isLoading } = useRoundDetails(roundId!);
+  useRoundChannel(roundId!);
   const tapMutation = useTapGoose(roundId!);
   const [timeLeft, setTimeLeft] = useState<string>('');
+  const [currentStatus, setCurrentStatus] = useState<RoundStatus | undefined>(undefined);
 
   useEffect(() => {
     if (!round) return;
 
-    const updateTimer = () => {
+    const compute = () => {
       const now = new Date();
-      let targetTime: Date;
-      
-      if (round.status === RoundStatus.COOLDOWN) {
-        targetTime = new Date(round.startTime);
-      } else if (round.status === RoundStatus.ACTIVE) {
-        targetTime = new Date(round.endTime);
-      } else {
-        setTimeLeft('');
+      const start = new Date(round.startTime);
+      const end = new Date(round.endTime);
+      if (now < start) {
+        setCurrentStatus(RoundStatus.COOLDOWN);
+        const diff = start.getTime() - now.getTime();
+        const minutes = Math.floor(diff / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        setTimeLeft(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
         return;
       }
-
-      const diff = targetTime.getTime() - now.getTime();
-      
-      if (diff <= 0) {
-        setTimeLeft('00:00');
+      if (now <= end) {
+        setCurrentStatus(RoundStatus.ACTIVE);
+        const diff = end.getTime() - now.getTime();
+        const minutes = Math.floor(diff / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        setTimeLeft(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
         return;
       }
-
-      const minutes = Math.floor(diff / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      setTimeLeft(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+      setCurrentStatus(RoundStatus.FINISHED);
+      setTimeLeft('');
     };
 
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    
+    compute();
+    const interval = setInterval(compute, 1000);
     return () => clearInterval(interval);
   }, [round]);
 
+  // Когда локально вычислили, что раунд завершён, а победителя еще нет — форснем обновление
+  useEffect(() => {
+    if (!roundId) return;
+    if (currentStatus === RoundStatus.FINISHED && round && !round.winner) {
+      queryClient.invalidateQueries({ queryKey: ['rounds', roundId] });
+    }
+  }, [currentStatus, round, roundId, queryClient]);
+
   const handleTap = async () => {
-    if (round?.status !== RoundStatus.ACTIVE) return;
+    if (currentStatus !== RoundStatus.ACTIVE) return;
     
     try {
       await tapMutation.mutateAsync();
+      // UI feedback: короткая вспышка при бонусе придёт через tap:result; можно подсветить кнопку
     } catch (error) {
       console.error('Tap failed:', error);
     }
   };
 
   const getStatusText = () => {
-    switch (round?.status) {
+    switch (currentStatus ?? round?.status) {
       case RoundStatus.ACTIVE:
         return 'Раунд активен!';
       case RoundStatus.COOLDOWN:
@@ -69,7 +81,7 @@ const RoundPage = () => {
   };
 
   const getTimerText = () => {
-    switch (round?.status) {
+    switch (currentStatus ?? round?.status) {
       case RoundStatus.ACTIVE:
         return `До конца осталось: ${timeLeft}`;
       case RoundStatus.COOLDOWN:
@@ -114,12 +126,12 @@ const RoundPage = () => {
           {/* ASCII Goose */}
           <div className="game-area__goose">
             <div 
-              className={`goose ${round.status !== RoundStatus.ACTIVE ? 'goose--disabled' : ''}`}
+              className={`goose ${(currentStatus ?? round.status) !== RoundStatus.ACTIVE ? 'goose--disabled' : ''}`}
               onClick={handleTap}
               style={{ 
                 fontFamily: 'monospace', 
-                fontSize: '8px', 
-                lineHeight: '8px',
+                fontSize: '12px', 
+                lineHeight: '12px',
                 whiteSpace: 'pre',
                 color: '#666'
               }}
@@ -153,7 +165,7 @@ const RoundPage = () => {
             </div>
           </div>
 
-          {round.status === RoundStatus.FINISHED && (
+          {(currentStatus ?? round.status) === RoundStatus.FINISHED && (
             <div className="stats">
               <h3 className="stats__title">Статистика раунда</h3>
               <div className="stats__row">

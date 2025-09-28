@@ -1,7 +1,7 @@
 import { Injectable, ForbiddenException, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RoundDomainService } from '@domain/round/round.domain-service';
-import { TapServicePort } from '@domain/tap/ports/tap.service.port';
+import { TapDomainService } from '@domain/tap/tap.domain-service';
 import { RoundRepositoryPort } from '@domain/round/ports/round.repository.port';
 import { RoundParticipantRepositoryPort } from '@domain/round/ports/round-participant.repository.port';
 import { User } from '@domain/user/user.entity';
@@ -14,8 +14,7 @@ import { AppConfig } from '@infrastructure/config/app.config';
 export class RoundsService {
   constructor(
     private readonly roundDomainService: RoundDomainService,
-    @Inject('TapServicePort')
-    private readonly tapService: TapServicePort,
+    private readonly tapService: TapDomainService,
     @Inject('RoundRepositoryPort')
     private readonly roundRepository: RoundRepositoryPort,
     @Inject('RoundParticipantRepositoryPort')

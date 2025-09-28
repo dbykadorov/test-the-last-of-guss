@@ -22,6 +22,12 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
+      // Проксируем Socket.IO транспорт для dev, чтобы namespace '/game' с относительным урлом работал
+      '/socket.io': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
   css: {

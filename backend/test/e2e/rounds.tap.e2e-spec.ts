@@ -42,7 +42,7 @@ describe('Rounds tap (e2e)', () => {
   it('creates a round (admin) then taps and sees score increment and 200', async () => {
     const adminToken = await login(app, 'admin', 'password123');
 
-    // Create a new round
+    // Создаем раунд
     const createRes = await request(app.getHttpServer())
       .post('/rounds')
       .set('Authorization', `Bearer ${adminToken}`)

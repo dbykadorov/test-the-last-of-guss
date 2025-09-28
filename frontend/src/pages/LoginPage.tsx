@@ -48,7 +48,7 @@ const LoginPage = () => {
             <Input
               label="Имя пользователя:"
               {...register('username')}
-              error={!!errors.username}
+              error={Boolean(errors.username)}
               errorMessage={errors.username?.message}
               autoComplete="username"
             />
@@ -57,7 +57,7 @@ const LoginPage = () => {
               label="Пароль:"
               type="password"
               {...register('password')}
-              error={!!errors.password}
+              error={Boolean(errors.password)}
               errorMessage={errors.password?.message}
               autoComplete="current-password"
             />

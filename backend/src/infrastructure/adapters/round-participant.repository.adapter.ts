@@ -24,7 +24,6 @@ export class RoundParticipantRepositoryAdapter implements RoundParticipantReposi
   }
 
   async findByUserAndRoundForUpdate(userId: string, roundId: string): Promise<RoundParticipant | null> {
-    // Use NOWAIT-style lock to avoid waiting and hanging under high contention
     return await this.participantRepository
       .createQueryBuilder('p')
       .setLock('pessimistic_write_or_fail')

@@ -33,8 +33,11 @@ services:
       JWT_SECRET: super-secret-jwt-key-for-production-change-this
       JWT_EXPIRES_IN: 24h
       ROUND_DURATION: 60  # 60 seconds for round duration
-      COOLDOWN_DURATION: 30   # 30 seconds for countdown before round starts
+      COOLDOWN_DURATION: 10   # 30 seconds for countdown before round starts
       NODE_ENV: production
+      APP_PORT: 3000
+      APP_ORIGINS: http://localhost:5173,http://frontend
+      ENABLE_SWAGGER: true
     depends_on:
       postgres:
         condition: service_healthy

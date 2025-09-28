@@ -5,6 +5,7 @@ import { UserRepositoryPort } from '../user/ports/user.repository.port';
 import { RoundRepositoryPort } from '../round/ports/round.repository.port';
 import { RoundParticipantRepositoryPort } from '../round/ports/round-participant.repository.port';
 import { UserRole } from '../user/user-role.enum';
+import { TransactionalRunner } from '@infrastructure/transaction/transactional-runner';
 
 @Injectable()
 export class TapDomainService implements TapServicePort {
@@ -16,19 +17,18 @@ export class TapDomainService implements TapServicePort {
     private readonly roundRepository: RoundRepositoryPort,
     @Inject('RoundParticipantRepositoryPort')
     private readonly participantRepository: RoundParticipantRepositoryPort,
+    private readonly transactionalRunner: TransactionalRunner,
   ) {}
 
   async executeTap(userId: string, roundId: string): Promise<TapResult> {
     this.logger.debug(`Tap requested: userId=${userId}, roundId=${roundId}`);
 
-    // 1. Verify user exists and can tap
     const user = await this.userRepository.findById(userId);
     if (!user) {
       this.logger.warn(`Tap rejected: user not found (userId=${userId})`);
       throw new BadRequestException('User not found');
     }
 
-    // 2. Verify round exists and is active
     const round = await this.roundRepository.findById(roundId);
     if (!round) {
       this.logger.warn(`Tap rejected: round not found (roundId=${roundId})`);
@@ -40,21 +40,19 @@ export class TapDomainService implements TapServicePort {
       throw new BadRequestException(`Round is not active. Current status: ${round.status}`);
     }
 
-    // 3. Execute with short retries for transient lock failures
     const maxAttempts = 3;
     const baseDelay = 10; // ms
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        return await this.participantRepository.executeInTransaction(async (manager) => {
-          // Find participant with pessimistic lock (or fail fast under contention)
-          let participant = await this.participantRepository.findByUserAndRoundForUpdate(userId, roundId);
+        const result = await this.transactionalRunner.runInTransaction(async ({ participantRepository, roundRepository }, manager) => {
+          let participant = await participantRepository.findByUserAndRoundForUpdate(userId, roundId);
           
           if (!participant) {
             this.logger.debug(`Creating participant (userId=${userId}, roundId=${roundId})`);
-            participant = this.participantRepository.create({ userId, roundId });
-            participant = await this.participantRepository.save(participant);
-            participant = await this.participantRepository.findByUserAndRoundForUpdate(userId, roundId);
+            participant = participantRepository.create({ userId, roundId });
+            participant = await participantRepository.save(participant);
+            participant = await participantRepository.findByUserAndRoundForUpdate(userId, roundId);
             if (!participant) {
               this.logger.error(`Failed to create or lock participant (userId=${userId}, roundId=${roundId})`);
               throw new ConflictException('Failed to create or lock participant');
@@ -68,8 +66,8 @@ export class TapDomainService implements TapServicePort {
 
           const tapResult = participant.addTap();
           this.logger.debug(`Tap computed (userId=${userId}, roundId=${roundId}, scoreEarned=${tapResult.scoreEarned}, bonus=${tapResult.bonusEarned})`);
-          await this.participantRepository.saveWithOptimisticLock(participant);
-          await this.roundRepository.incrementTotalScore(roundId, Number(tapResult.scoreEarned), manager);
+          await participantRepository.saveWithOptimisticLock(participant);
+          await roundRepository.incrementTotalScore(roundId, Number(tapResult.scoreEarned));
           this.logger.debug(`Round totalScore incremented (roundId=${roundId}, delta=${tapResult.scoreEarned})`);
 
           return TapResult.create(
@@ -79,6 +77,8 @@ export class TapDomainService implements TapServicePort {
             tapResult.scoreEarned,
           );
         });
+
+        return result;
       } catch (error: any) {
         const message = error?.message ?? '';
         const isLockFail = message.includes('nowait') || message.includes('could not obtain lock') || message.includes('pessimistic');
@@ -97,7 +97,6 @@ export class TapDomainService implements TapServicePort {
       }
     }
 
-    // При нормальном развитии событий сюда мы попасть не должны, раз уж попали, кидаем исключение
     throw new ConflictException('Tap temporarily unavailable, please retry');
   }
 }
