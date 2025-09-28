@@ -5,7 +5,7 @@ import { User } from '@/types/api';
 interface AuthState {
   user: User | null;
   token: string | null;
-  isAuthenticated: boolean; // derived from token
+  isAuthenticated: boolean; // поддерживаем в синхроне с token
   setAuth: (user: User, token: string) => void;
   logout: () => void;
 }
@@ -15,16 +15,14 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       token: null,
-      get isAuthenticated() {
-        return !!get().token;
-      },
+      isAuthenticated: false,
       setAuth: (user: User, token: string) => {
         localStorage.setItem('auth_token', token);
-        set({ user, token });
+        set({ user, token, isAuthenticated: true });
       },
       logout: () => {
         localStorage.removeItem('auth_token');
-        set({ user: null, token: null });
+        set({ user: null, token: null, isAuthenticated: false });
       },
     }) as AuthState,
     {
@@ -33,6 +31,11 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         token: state.token,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          set({ isAuthenticated: !!(state as AuthState).token });
+        }
+      },
     }
   )
 );
