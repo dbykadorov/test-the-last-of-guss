@@ -4,12 +4,16 @@ import { useRounds, useCreateRound } from '@hooks/useRounds';
 import { useLogout } from '@hooks/useAuth';
 import { UserRole, RoundStatus } from '@/types/api';
 import Button from '@components/atoms/Button';
+import { useRoundChannel } from '@/hooks/useRoundChannel';
 
 const RoundsPage = () => {
   const user = useAuthStore((state) => state.user);
   const logout = useLogout();
   const { data: rounds, isLoading } = useRounds();
   const createRoundMutation = useCreateRound();
+  // Подключим канал без конкретного roundId, чтобы получать broadcast обновлений списка
+  // Важно: вызывать хук один раз на странице, чтобы не открывать дубликаты соединений
+  useRoundChannel(undefined);
 
   const handleCreateRound = async () => {
     try {
@@ -21,6 +25,15 @@ const RoundsPage = () => {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('ru-RU');
+  };
+
+  const getComputedStatus = (startTime: string, endTime: string): RoundStatus => {
+    const now = new Date();
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    if (now < start) return RoundStatus.COOLDOWN;
+    if (now <= end) return RoundStatus.ACTIVE;
+    return RoundStatus.FINISHED;
   };
 
   const getStatusText = (status: RoundStatus) => {
@@ -73,38 +86,41 @@ const RoundsPage = () => {
         )}
 
         <div>
-          {rounds?.map((round) => (
-            <div key={round.id} className="round-card">
-              <div className="round-card__header">
-                <Link 
-                  to={`/rounds/${round.id}`} 
-                  className="round-card__title"
-                >
-                  ● Round ID: {round.id}
-                </Link>
-                <span className={`round-card__status round-card__status--${round.status}`}>
-                  Статус: {getStatusText(round.status)}
-                </span>
-              </div>
-              
-              <div className="round-card__time">
-                Start: {formatDate(round.startTime)}
-              </div>
-              <div className="round-card__time">
-                End: {formatDate(round.endTime)}
-              </div>
-              
-              <div style={{ 
-                borderTop: '1px solid #e5e7eb', 
-                marginTop: '1rem', 
-                paddingTop: '0.5rem' 
-              }}>
-                <div className="text-sm text-secondary">
-                  Общий счет: {round.totalScore}
+          {rounds?.map((round) => {
+            const liveStatus = getComputedStatus(round.startTime as any, round.endTime as any);
+            return (
+              <div key={round.id} className="round-card">
+                <div className="round-card__header">
+                  <Link 
+                    to={`/rounds/${round.id}`} 
+                    className="round-card__title"
+                  >
+                    ● Round ID: {round.id}
+                  </Link>
+                  <span className={`round-card__status round-card__status--${liveStatus}`}>
+                    Статус: {getStatusText(liveStatus)}
+                  </span>
+                </div>
+                
+                <div className="round-card__time">
+                  Start: {formatDate(round.startTime as any)}
+                </div>
+                <div className="round-card__time">
+                  End: {formatDate(round.endTime as any)}
+                </div>
+                
+                <div style={{ 
+                  borderTop: '1px solid #e5e7eb', 
+                  marginTop: '1rem', 
+                  paddingTop: '0.5rem' 
+                }}>
+                  <div className="text-sm text-secondary">
+                    Общий счет: {round.totalScore}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           
           {!rounds?.length && (
             <div className="text-center text-secondary mt-xl">

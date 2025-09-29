@@ -13,7 +13,6 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     logout: state.logout,
   }));
 
-  // If persisted token is missing (expired/cleared), enforce consistent logout state
   useEffect(() => {
     const stored = localStorage.getItem('auth_token');
     if (!stored && (isAuthenticated || token)) {

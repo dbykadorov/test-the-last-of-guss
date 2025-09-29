@@ -12,7 +12,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       token: null,
       isAuthenticated: false,
@@ -24,16 +24,18 @@ export const useAuthStore = create<AuthState>()(
         localStorage.removeItem('auth_token');
         set({ user: null, token: null, isAuthenticated: false });
       },
-    }) as AuthState,
+    }),
     {
       name: 'auth-storage',
       partialize: (state: AuthState) => ({
         user: state.user,
         token: state.token,
+        isAuthenticated: Boolean(state.token),
       }),
       onRehydrateStorage: () => (state) => {
+        const token = localStorage.getItem('auth_token');
         if (state) {
-          set({ isAuthenticated: !!(state as AuthState).token });
+          state.isAuthenticated = Boolean(token);
         }
       },
     }

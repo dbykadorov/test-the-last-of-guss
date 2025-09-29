@@ -6,16 +6,13 @@ import { RoundRepositoryPort } from '@domain/round/ports/round.repository.port';
 import { RoundParticipantRepositoryPort } from '@domain/round/ports/round-participant.repository.port';
 
 /**
- * Минимальный набор транзакционных репозиториев, необходимых для текущей
- * реализации юзкейса "тап":
- * - participantRepository: для SELECT ... FOR UPDATE, создания и сохранения участника
- * - roundRepository: для атомарного инкремента totalScore в той же транзакции
+ * Транзакционный раннер: даёт ровно то, что нужно для юзкейса «тап» —
+ * participantRepository (блокировки/сохранение) и roundRepository (атомарный инкремент totalScore)
+ * в рамках одного менеджера/транзакции.
  *
- * TODO Как добавить новые:
- * 1) Импортировать сущность и порт (например, SomeEntity, SomeRepositoryPort)
- * 2) Внутри колбэка transaction (ниже) получить repo через manager.getRepository(SomeEntity)
- * 3) Собрать адаптер, реализующий методы порта в возвращаемом объекте
- * 4) Обновить интерфейс TransactionalRepositories, чтобы включить новый репозиторий
+ * Как расширить при необходимости: добавьте соответствующую сущность и порт,
+ * получите репозиторий через manager.getRepository(...), соберите адаптер с нужными методами
+ * и верните его в объекте ниже (TransactionalRepositories).
  */
 export interface TransactionalRepositories {
   roundRepository: RoundRepositoryPort;

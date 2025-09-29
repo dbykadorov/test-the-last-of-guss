@@ -18,19 +18,26 @@
 }
 
 .goose {
-  width: 200px;
-  height: 200px;
+  width: min(60vw, 420px);
+  height: min(60vw, 420px);
   margin: 0 auto;
   cursor: pointer;
   transition: $transition;
   user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $border-radius-lg;
+  background-color: rgba($primary-color, 0.04);
   
   &:hover {
-    transform: scale(1.05);
+    transform: scale(1.03);
   }
   
   &:active {
-    transform: scale(0.95);
+    transform: scale(0.97);
   }
   
   &--disabled {

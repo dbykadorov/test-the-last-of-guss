@@ -7,6 +7,7 @@ import appConfig from '@infrastructure/config/app.config';
 import jwtConfig from '@infrastructure/config/jwt.config';
 import { AuthModule } from '@application/auth/auth.module';
 import { RoundsModule } from '@application/rounds/rounds.module';
+import { InfrastructureModule } from '@infrastructure/infrastructure.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { RoundsModule } from '@application/rounds/rounds.module';
         return dbConfig;
       },
     }),
+    InfrastructureModule,
     AuthModule,
     RoundsModule,
   ],

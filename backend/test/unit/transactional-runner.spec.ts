@@ -21,7 +21,6 @@ describe('TransactionalRunner', () => {
   });
 
   it('binds repositories to the same manager and executes operation', async () => {
-    // Arrange transactional manager and repos
     const roundRepoMock = {
       findOne: jest.fn(),
       createQueryBuilder: jest.fn().mockReturnValue({
@@ -58,14 +57,12 @@ describe('TransactionalRunner', () => {
 
     (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
 
-    // Act
     const result = await runner.runInTransaction(async ({ roundRepository, participantRepository }) => {
       await roundRepository.incrementTotalScore('r1', 1);
       await participantRepository.findByUserAndRoundForUpdate('u1', 'r1');
       return 'ok';
     });
 
-    // Assert
     expect(result).toBe('ok');
     expect((manager.getRepository as any)).toHaveBeenCalledWith(Round);
     expect((manager.getRepository as any)).toHaveBeenCalledWith(RoundParticipant);

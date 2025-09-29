@@ -17,14 +17,14 @@ export class AuthService {
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
     const { username, password } = loginDto;
 
-    // ищем юзера
+    // Ищем пользователя
     let user = await this.userRepository.findByUsername(username);
 
     if (!user) {
-      // TODO: только для демки! при первом логине пользователя создаем, в жизни так не делаем, честно-честно =^_^=
+      // Для демо: при первом логине создаём пользователя
       user = await this.createUser(username, password);
     } else {
-      // Если нашли юзера, проверим пароль
+      // Если нашли — проверим пароль
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
         throw new UnauthorizedException('Invalid credentials');

@@ -23,14 +23,12 @@ export class TapDomainService implements TapServicePort {
   async executeTap(userId: string, roundId: string): Promise<TapResult> {
     this.logger.debug(`Tap requested: userId=${userId}, roundId=${roundId}`);
 
-    // 1. Verify user exists and can tap
     const user = await this.userRepository.findById(userId);
     if (!user) {
       this.logger.warn(`Tap rejected: user not found (userId=${userId})`);
       throw new BadRequestException('User not found');
     }
 
-    // 2. Verify round exists and is active
     const round = await this.roundRepository.findById(roundId);
     if (!round) {
       this.logger.warn(`Tap rejected: round not found (roundId=${roundId})`);
@@ -42,14 +40,12 @@ export class TapDomainService implements TapServicePort {
       throw new BadRequestException(`Round is not active. Current status: ${round.status}`);
     }
 
-    // 3. Execute with short retries for transient lock failures
     const maxAttempts = 3;
     const baseDelay = 10; // ms
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        return await this.transactionalRunner.runInTransaction(async ({ participantRepository, roundRepository }, manager) => {
-          // Find participant with pessimistic lock (or fail fast under contention)
+        const result = await this.transactionalRunner.runInTransaction(async ({ participantRepository, roundRepository }, manager) => {
           let participant = await participantRepository.findByUserAndRoundForUpdate(userId, roundId);
           
           if (!participant) {
@@ -81,6 +77,8 @@ export class TapDomainService implements TapServicePort {
             tapResult.scoreEarned,
           );
         });
+
+        return result;
       } catch (error: any) {
         const message = error?.message ?? '';
         const isLockFail = message.includes('nowait') || message.includes('could not obtain lock') || message.includes('pessimistic');
@@ -99,7 +97,6 @@ export class TapDomainService implements TapServicePort {
       }
     }
 
-    // При нормальном развитии событий сюда мы попасть не должны, раз уж попали, кидаем исключение
     throw new ConflictException('Tap temporarily unavailable, please retry');
   }
 }

@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { ModuleRef } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import { WsJwtGuard } from '@application/auth/guards/ws-jwt.guard';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '@domain/user/user.entity';
 import { Round } from '@domain/round/round.entity';
@@ -13,13 +17,20 @@ import { TapServicePort } from '@domain/tap/ports/tap.service.port';
 import { TapDomainService } from '@domain/tap/tap.domain-service';
 import { RoundDomainService } from '@domain/round/round.domain-service';
 import { TransactionalRunner } from './transaction/transactional-runner';
+import { GameGateway } from '@interfaces/ws/game.gateway';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Round, RoundParticipant]),
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: config.get('JWT_EXPIRES_IN', '24h') },
+      }),
+    }),
   ],
   providers: [
-    // Repository adapters
     {
       provide: 'UserRepositoryPort',
       useClass: UserRepositoryAdapter,
@@ -32,20 +43,25 @@ import { TransactionalRunner } from './transaction/transactional-runner';
       provide: 'RoundParticipantRepositoryPort',
       useClass: RoundParticipantRepositoryAdapter,
     },
+    TapDomainService,
     {
       provide: 'TapServicePort',
-      useClass: TapDomainService,
+      useExisting: TapDomainService,
     },
     RoundDomainService,
     TransactionalRunner,
+    GameGateway,
+    WsJwtGuard,
   ],
   exports: [
     'UserRepositoryPort',
     'RoundRepositoryPort',
     'RoundParticipantRepositoryPort',
+    TapDomainService,
     'TapServicePort',
     RoundDomainService,
     TransactionalRunner,
+    GameGateway,
   ],
 })
 export class InfrastructureModule {}
