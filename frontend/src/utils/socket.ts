@@ -2,6 +2,16 @@ import { io, Socket } from 'socket.io-client';
 
 let socketInstance: Socket | null = null;
 let currentToken: string | null = null;
+let flushListenerAttached = false;
+const pendingTapRounds: string[] = [];
+const tapMetrics = {
+  emitted: 0,
+  queued: 0,
+  flushed: 0,
+  acked: 0,
+  accepted: 0, // ack.ok === true
+  rejected: 0, // ack.ok === false
+};
 
 export function getSocket(token: string | null | undefined): Socket | null {
   if (!token) return null;
@@ -54,7 +64,65 @@ export function getSocket(token: string | null | undefined): Socket | null {
     reconnectionDelayMax: 3000,
   });
   currentToken = token;
+
+  // Один раз навешиваем обработчик для сброса очереди тапов после подключения
+  if (!flushListenerAttached && socketInstance) {
+    flushListenerAttached = true;
+    socketInstance.on('connect', () => {
+      // Быстро выгружаем накопленные тапы, сохраняя порядок
+      while (pendingTapRounds.length) {
+        const rid = pendingTapRounds.shift();
+        if (!rid) break;
+        try {
+          socketInstance!.emit('tap', { roundId: rid }, (ack: { ok: boolean; error?: string }) => {
+            if (ack?.ok) tapMetrics.accepted += 1;
+            else tapMetrics.rejected += 1;
+          });
+          tapMetrics.flushed += 1;
+        } catch {}
+      }
+    });
+    // Учитываем подтверждения сервером: любое tap:result трактуем как ack одной отправки
+    socketInstance.on('tap:result', () => {
+      tapMetrics.acked += 1;
+    });
+  }
   return socketInstance;
+}
+
+
+export function emitTapNonBlocking(roundId: string, token: string | null | undefined): void {
+  const s = getSocket(token);
+  if (!s) return;
+  if (s.connected) {
+    try {
+      s.emit('tap', { roundId }, (ack: { ok: boolean; error?: string }) => {
+        if (ack?.ok) tapMetrics.accepted += 1;
+        else tapMetrics.rejected += 1;
+      });
+      tapMetrics.emitted += 1;
+    } catch {
+      pendingTapRounds.push(roundId);
+      tapMetrics.queued += 1;
+    }
+  } else {
+    pendingTapRounds.push(roundId);
+    tapMetrics.queued += 1;
+    try { s.connect(); } catch {}
+  }
+}
+
+export function getTapMetrics() {
+  return { ...tapMetrics, pending: pendingTapRounds.length };
+}
+
+export function resetTapMetrics() {
+  tapMetrics.emitted = 0;
+  tapMetrics.queued = 0;
+  tapMetrics.flushed = 0;
+  tapMetrics.acked = 0;
+  tapMetrics.accepted = 0;
+  tapMetrics.rejected = 0;
 }
 
 

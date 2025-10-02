@@ -3,7 +3,7 @@ import { Socket } from 'socket.io-client';
 import { useAuthStore } from '@/store/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { RoundDetails } from '@/types/api';
-import { getSocket } from '@/utils/socket';
+import { getSocket, resetTapMetrics } from '@/utils/socket';
 
 export function useRoundChannel(roundId: string | undefined) {
   const token = useAuthStore((s) => s.token);
@@ -132,6 +132,8 @@ export function useRoundChannel(roundId: string | undefined) {
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket || !roundId) return;
+    // Сбрасываем метрики при входе в новый раунд
+    resetTapMetrics();
     const afterJoinSync = () => {
       // Подтянем актуальные данные раунда сразу после join
       queryClient.invalidateQueries({ queryKey: ['rounds', roundId] });

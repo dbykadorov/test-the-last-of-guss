@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@utils/api';
 import { Round, RoundDetails, TapResponse } from '@/types/api';
-import { getSocket } from '@/utils/socket';
+import { emitTapNonBlocking } from '@/utils/socket';
 import { useAuthStore } from '@/store/auth';
 
 export const useRounds = () => {
@@ -53,30 +53,9 @@ export const useTapGoose = (roundId: string) => {
 
   return useMutation({
     mutationFn: async (): Promise<TapResponse> => {
-      const socket = getSocket(token);
-      if (!socket) {
-        throw new Error('Socket not initialized');
-      }
-      if (!socket.connected) {
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('Socket connect timeout')), 1500);
-          socket.once('connect', () => {
-            clearTimeout(timeout);
-            resolve(undefined);
-          });
-          socket.connect();
-        });
-      }
-      if (!socket.connected) {
-        throw new Error('Socket not connected');
-      }
-      const res = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
-        socket.emit('tap', { roundId }, (ack: { ok: boolean; error?: string }) => resolve(ack));
-      });
-      if (!res.ok) {
-        throw new Error(res.error || 'Tap failed');
-      }
-      // Ответ tap:result придет по сокету; возвращаем заглушку
+      // Неблокирующая отправка: не ждём подключения и ack
+      emitTapNonBlocking(roundId, token);
+      // Ответ tap:result придёт по сокету; возвращаем заглушку
       const current = queryClient.getQueryData<RoundDetails>(['rounds', roundId]);
       return {
         myScore: current?.myParticipation?.score ?? 0,

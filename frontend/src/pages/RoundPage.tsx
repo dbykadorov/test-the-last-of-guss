@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuthStore } from '@store/auth';
 import { useRoundDetails, useTapGoose } from '@hooks/useRounds';
+import { getTapMetrics } from '@/utils/socket';
 import { useQueryClient } from '@tanstack/react-query';
 import { RoundStatus } from '@/types/api';
 import { useRoundChannel } from '@/hooks/useRoundChannel';
@@ -15,6 +16,7 @@ const RoundPage = () => {
   const tapMutation = useTapGoose(roundId!);
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [currentStatus, setCurrentStatus] = useState<RoundStatus | undefined>(undefined);
+  const [metrics, setMetrics] = useState(() => getTapMetrics());
 
   useEffect(() => {
     if (!round) return;
@@ -47,6 +49,12 @@ const RoundPage = () => {
     const interval = setInterval(compute, 1000);
     return () => clearInterval(interval);
   }, [round]);
+
+  // Лёгкая отладочная панель метрик тапов
+  useEffect(() => {
+    const id = setInterval(() => setMetrics(getTapMetrics()), 500);
+    return () => clearInterval(id);
+  }, []);
 
   // Когда локально вычислили, что раунд завершён, а победителя еще нет — форснем обновление
   useEffect(() => {
@@ -162,6 +170,17 @@ const RoundPage = () => {
             
             <div className="game-area__score">
               Мои очки - {round.myParticipation?.score || 0}
+            </div>
+
+            {/* Отладка: метрики отправки тапов */}
+            <div style={{ marginTop: '1rem', fontSize: '12px', color: '#888' }}>
+              <div>emitted: {metrics.emitted}</div>
+              <div>queued: {metrics.queued}</div>
+              <div>flushed: {metrics.flushed}</div>
+              <div>acked: {metrics.acked}</div>
+              <div>accepted: {metrics.accepted}</div>
+              <div>rejected: {metrics.rejected}</div>
+              <div>pending: {metrics.pending}</div>
             </div>
           </div>
 
