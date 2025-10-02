@@ -3,7 +3,7 @@ import { Socket } from 'socket.io-client';
 import { useAuthStore } from '@/store/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { RoundDetails } from '@/types/api';
-import { getSocket, resetTapMetrics } from '@/utils/socket';
+import { getSocket, resetTapMetrics, freezeTapMetrics } from '@/utils/socket';
 
 export function useRoundChannel(roundId: string | undefined) {
   const token = useAuthStore((s) => s.token);
@@ -26,14 +26,19 @@ export function useRoundChannel(roundId: string | undefined) {
 
     const onDisconnect = () => setConnected(false);
 
-    const onRoundUpdate = (payload: { roundId?: string; scoreEarned?: number }) => {
+    const onRoundUpdate = (payload: { roundId?: string; scoreEarned?: number; status?: string }) => {
       // Мягко обновим список/детали без принудительного запроса, если можем
       if (payload?.roundId) {
         let detailsUpdated = false;
         queryClient.setQueryData<RoundDetails | undefined>(['rounds', payload.roundId], (prev) => {
           if (!prev) return prev;
           detailsUpdated = true;
-          return { ...prev, totalScore: (Number((prev as any).totalScore ?? 0) + Number(payload.scoreEarned ?? 0)) as any } as any;
+          const next: any = { ...prev } as any;
+          next.totalScore = (Number((prev as any).totalScore ?? 0) + Number(payload.scoreEarned ?? 0)) as any;
+          if (payload.status && typeof payload.status === 'string') {
+            (next as any).status = payload.status;
+          }
+          return next as RoundDetails;
         });
 
         // Обновим список раундов
@@ -51,6 +56,14 @@ export function useRoundChannel(roundId: string | undefined) {
         // Если подробностей в кэше не было — один раз подтянем детали из сети
         if (!detailsUpdated) {
           queryClient.invalidateQueries({ queryKey: ['rounds', payload.roundId] });
+        }
+
+        // Если получили сигнал о завершении — заморозим метрики и чуть позже сделаем финальный reconcile
+        if (payload.status === 'FINISHED') {
+          freezeTapMetrics();
+          setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['rounds', payload.roundId] });
+          }, 400);
         }
       }
     };

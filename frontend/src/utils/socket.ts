@@ -12,6 +12,7 @@ const tapMetrics = {
   accepted: 0, // ack.ok === true
   rejected: 0, // ack.ok === false
 };
+let metricsFrozen = false;
 
 export function getSocket(token: string | null | undefined): Socket | null {
   if (!token) return null;
@@ -100,7 +101,7 @@ export function emitTapNonBlocking(roundId: string, token: string | null | undef
         if (ack?.ok) tapMetrics.accepted += 1;
         else tapMetrics.rejected += 1;
       });
-      tapMetrics.emitted += 1;
+      if (!metricsFrozen) tapMetrics.emitted += 1;
     } catch {
       pendingTapRounds.push(roundId);
       tapMetrics.queued += 1;
@@ -123,6 +124,11 @@ export function resetTapMetrics() {
   tapMetrics.acked = 0;
   tapMetrics.accepted = 0;
   tapMetrics.rejected = 0;
+  metricsFrozen = false;
+}
+
+export function freezeTapMetrics() {
+  metricsFrozen = true;
 }
 
 

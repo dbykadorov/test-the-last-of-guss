@@ -173,7 +173,7 @@ const RoundPage = () => {
             </div>
 
             {/* Отладка: метрики отправки тапов */}
-            <div style={{ marginTop: '1rem', fontSize: '12px', color: '#888' }}>
+            <div style={{ marginTop: '1rem', fontSize: '12px', color: '#888', display: 'none' }}>
               <div>emitted: {metrics.emitted}</div>
               <div>queued: {metrics.queued}</div>
               <div>flushed: {metrics.flushed}</div>
