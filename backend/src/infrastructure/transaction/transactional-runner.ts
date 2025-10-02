@@ -74,7 +74,7 @@ export class TransactionalRunner {
         async findByUserAndRoundForUpdate(userId: string, roundId: string) {
           return await participantRepo
             .createQueryBuilder('p')
-            .setLock('pessimistic_write_or_fail')
+            .setLock('pessimistic_write')
             .where('p.userId = :userId AND p.roundId = :roundId', { userId, roundId })
             .getOne();
         },

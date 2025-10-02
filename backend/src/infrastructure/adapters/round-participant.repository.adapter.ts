@@ -26,7 +26,7 @@ export class RoundParticipantRepositoryAdapter implements RoundParticipantReposi
   async findByUserAndRoundForUpdate(userId: string, roundId: string): Promise<RoundParticipant | null> {
     return await this.participantRepository
       .createQueryBuilder('p')
-      .setLock('pessimistic_write_or_fail')
+      .setLock('pessimistic_write')
       .where('p.userId = :userId AND p.roundId = :roundId', { userId, roundId })
       .getOne();
   }
